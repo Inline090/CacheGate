@@ -1,4 +1,5 @@
 const express = require('express')
+const cache = require('./cache')
 
 const PORT = process.env.PORT || 3000
 const ORIGIN = process.env.ORIGIN || 'http://localhost:8080'
@@ -42,18 +43,25 @@ app.use(async (req, res) => {
     })
 
     const body = Buffer.from(await originRes.arrayBuffer())
+    const responseHeaders = {}
 
-    res.status(originRes.status)
     originRes.headers.forEach((value, name) => {
-      if (!HOP_BY_HOP.has(name)) {
-        res.setHeader(name, value)
+      // fetch hands back a decompressed body, so length and encoding headers would be wrong
+      if (!HOP_BY_HOP.has(name) && name !== 'content-length' && name !== 'content-encoding') {
+        responseHeaders[name] = value
       }
     })
+
+    await cache.set(req.method, req.originalUrl, {
+      status: originRes.status,
+      headers: responseHeaders,
+      body,
+    })
+
+    res.status(originRes.status)
+    res.set(responseHeaders)
     // nothing is served from cache yet, so every response is a fresh origin fetch
     res.setHeader('X-Cache', 'MISS')
-    // fetch already decompressed the body, so the origin's content-encoding would be a lie
-    res.removeHeader('content-length')
-    res.removeHeader('content-encoding')
     res.send(body)
   } catch (err) {
     console.error(`origin request failed: ${req.method} ${target} — ${err.message}`)
@@ -61,7 +69,13 @@ app.use(async (req, res) => {
   }
 })
 
-app.listen(PORT, () => {
-  console.log(`caching-proxy listening on http://localhost:${PORT}`)
-  console.log(`forwarding to origin: ${ORIGIN}`)
-})
+async function main() {
+  await cache.connect()
+
+  app.listen(PORT, () => {
+    console.log(`caching-proxy listening on http://localhost:${PORT}`)
+    console.log(`forwarding to origin: ${ORIGIN}`)
+  })
+}
+
+main()
