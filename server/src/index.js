@@ -1,5 +1,7 @@
 const express = require('express')
 const { parseArgs } = require('node:util')
+const { Readable } = require('node:stream')
+const { pipeline } = require('node:stream/promises')
 const cache = require('./cache')
 const stats = require('./db/stats')
 const statsRouter = require('./routes/stats')
@@ -14,6 +16,8 @@ const { values } = parseArgs({
 
 const PORT = Number(values.port || process.env.PORT) || 3000
 const ORIGIN = values.origin || process.env.ORIGIN || 'http://localhost:8080'
+
+const MAX_CACHE_BYTES = 1024 * 1024
 
 const HOP_BY_HOP = new Set([
   'connection',
@@ -54,25 +58,60 @@ function responseHeaders(headers) {
   return out
 }
 
-async function fetchFromOrigin(req) {
+async function streamFromOrigin(req, res, cacheStatus, startedAt, cacheable) {
   const originRes = await fetch(ORIGIN + req.originalUrl, {
     method: req.method,
     headers: requestHeaders(req.headers),
     body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.body,
   })
 
-  return {
-    status: originRes.status,
-    headers: responseHeaders(originRes.headers),
-    body: Buffer.from(await originRes.arrayBuffer()),
-  }
-}
+  const headers = responseHeaders(originRes.headers)
 
-function sendResult(res, result, cacheStatus) {
-  res.status(result.status)
-  res.set(result.headers)
+  res.status(originRes.status)
+  res.set(headers)
   res.setHeader('X-Cache', cacheStatus)
-  res.send(result.body)
+
+  const originStream = Readable.fromWeb(originRes.body)
+  const chunks = []
+
+  let keep = cacheable && cache.isCacheableResponse(originRes.status)
+  let size = 0
+
+  originStream.on('data', (chunk) => {
+    if (!keep) {
+      return
+    }
+
+    size += chunk.length
+
+    if (size > MAX_CACHE_BYTES) {
+      // past the cap we stop holding the body — copying it is what caused the memory spike
+      keep = false
+      chunks.length = 0
+      return
+    }
+
+    chunks.push(chunk)
+  })
+
+  await pipeline(originStream, res)
+
+  await stats.record({
+    method: req.method,
+    url: req.originalUrl,
+    status: originRes.status,
+    cacheStatus,
+    durationMs: Date.now() - startedAt,
+  })
+
+  if (!keep) {
+    return null
+  }
+
+  const body = Buffer.concat(chunks)
+  await cache.set(req.method, req.originalUrl, { status: originRes.status, headers, body })
+
+  return { status: originRes.status, headers, body }
 }
 
 async function reply(req, res, result, cacheStatus, startedAt) {
@@ -84,7 +123,10 @@ async function reply(req, res, result, cacheStatus, startedAt) {
     durationMs: Date.now() - startedAt,
   })
 
-  sendResult(res, result, cacheStatus)
+  res.status(result.status)
+  res.set(result.headers)
+  res.setHeader('X-Cache', cacheStatus)
+  res.send(result.body)
 }
 
 app.get('/', (req, res) => {
@@ -101,8 +143,8 @@ app.use(async (req, res) => {
 
   try {
     if (!cache.isCacheableRequest(req.method)) {
-      const result = await fetchFromOrigin(req)
-      return await reply(req, res, result, 'MISS', startedAt)
+      await streamFromOrigin(req, res, 'MISS', startedAt, false)
+      return
     }
 
     const cached = await cache.get(req.method, req.originalUrl)
@@ -122,22 +164,23 @@ app.use(async (req, res) => {
     const entry = { waiters: [] }
     inFlight.set(key, entry)
 
-    const result = await fetchFromOrigin(req)
-
-    if (cache.isCacheableResponse(result.status)) {
-      await cache.set(req.method, req.originalUrl, result)
-    }
-
-    await reply(req, res, result, 'MISS', startedAt)
+    const result = await streamFromOrigin(req, res, 'MISS', startedAt, true)
 
     for (const waiter of entry.waiters) {
-      await reply(waiter.req, waiter.res, result, 'MISS', waiter.startedAt)
+      if (result) {
+        await reply(waiter.req, waiter.res, result, 'MISS', waiter.startedAt)
+      } else {
+        await streamFromOrigin(waiter.req, waiter.res, 'MISS', waiter.startedAt, true)
+      }
     }
 
     inFlight.delete(key)
   } catch (err) {
     console.error(`origin request failed: ${req.method} ${req.originalUrl} — ${err.message}`)
-    res.status(502).send('Bad Gateway')
+
+    if (!res.headersSent) {
+      res.status(502).send('Bad Gateway')
+    }
   }
 })
 
