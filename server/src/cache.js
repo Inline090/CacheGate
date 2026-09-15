@@ -46,7 +46,24 @@ async function disconnect() {
   }
 }
 
+// commands issued before the connection is up fail immediately, so wait for it —
+// bounded, because the CLI should report a dead redis rather than hang on one
+async function waitUntilReady(timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    if (client.isReady) {
+      return
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
+  throw new Error(`redis not reachable at ${REDIS_URL}`)
+}
+
 async function flush() {
+  await waitUntilReady()
   await client.flushAll()
 }
 

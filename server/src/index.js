@@ -200,7 +200,13 @@ async function main() {
   cache.connect()
 
   if (values['clear-cache']) {
-    await cache.flush()
+    try {
+      await cache.flush()
+    } catch (err) {
+      console.error(`could not clear the cache: ${err.message}`)
+      process.exit(1)
+    }
+
     await cache.disconnect()
     console.log('cache cleared')
     return
