@@ -164,17 +164,29 @@ app.use(async (req, res) => {
     const entry = { waiters: [] }
     inFlight.set(key, entry)
 
-    const result = await streamFromOrigin(req, res, 'MISS', startedAt, true)
+    try {
+      const result = await streamFromOrigin(req, res, 'MISS', startedAt, true)
 
-    for (const waiter of entry.waiters) {
-      if (result) {
-        await reply(waiter.req, waiter.res, result, 'MISS', waiter.startedAt)
-      } else {
-        await streamFromOrigin(waiter.req, waiter.res, 'MISS', waiter.startedAt, true)
+      for (const waiter of entry.waiters) {
+        if (result) {
+          await reply(waiter.req, waiter.res, result, 'MISS', waiter.startedAt)
+        } else {
+          await streamFromOrigin(waiter.req, waiter.res, 'MISS', waiter.startedAt, true)
+        }
       }
-    }
+    } catch (err) {
+      // waiters share this fetch, so a failure has to reach them as well
+      for (const waiter of entry.waiters) {
+        if (!waiter.res.headersSent) {
+          waiter.res.status(502).send('Bad Gateway')
+        }
+      }
 
-    inFlight.delete(key)
+      throw err
+    } finally {
+      // success or failure, never leave a dead fetch in the map
+      inFlight.delete(key)
+    }
   } catch (err) {
     console.error(`origin request failed: ${req.method} ${req.originalUrl} — ${err.message}`)
 
