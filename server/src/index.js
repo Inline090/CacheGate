@@ -1,8 +1,16 @@
 const express = require('express')
+const { parseArgs } = require('node:util')
 const cache = require('./cache')
 
-const PORT = process.env.PORT || 3000
-const ORIGIN = process.env.ORIGIN || 'http://localhost:8080'
+const { values } = parseArgs({
+  options: {
+    port: { type: 'string', short: 'p' },
+    origin: { type: 'string', short: 'o' },
+  },
+})
+
+const PORT = Number(values.port || process.env.PORT) || 3000
+const ORIGIN = values.origin || process.env.ORIGIN || 'http://localhost:8080'
 
 const HOP_BY_HOP = new Set([
   'connection',
