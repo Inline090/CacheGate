@@ -36,6 +36,15 @@ app.use(async (req, res) => {
   const sendBody = !['GET', 'HEAD'].includes(req.method)
 
   try {
+    const cached = await cache.get(req.method, req.originalUrl)
+
+    if (cached) {
+      res.status(cached.status)
+      res.set(cached.headers)
+      res.setHeader('X-Cache', 'HIT')
+      return res.send(cached.body)
+    }
+
     const originRes = await fetch(target, {
       method: req.method,
       headers,
@@ -60,7 +69,7 @@ app.use(async (req, res) => {
 
     res.status(originRes.status)
     res.set(responseHeaders)
-    // nothing is served from cache yet, so every response is a fresh origin fetch
+    // we only get here on a cache miss, so this response came from the origin
     res.setHeader('X-Cache', 'MISS')
     res.send(body)
   } catch (err) {
