@@ -3,16 +3,19 @@ import { useEffect, useState } from 'react'
 export default function App() {
   const [summary, setSummary] = useState(null)
   const [routes, setRoutes] = useState(null)
+  const [latency, setLatency] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     Promise.all([
       fetch('/stats/summary').then((res) => res.json()),
       fetch('/stats/routes').then((res) => res.json()),
+      fetch('/stats/latency').then((res) => res.json()),
     ])
-      .then(([summaryData, routeData]) => {
+      .then(([summaryData, routeData, latencyData]) => {
         setSummary(summaryData)
         setRoutes(routeData)
+        setLatency(latencyData)
       })
       .catch((err) => setError(err.message))
   }, [])
@@ -29,6 +32,17 @@ export default function App() {
           <p className="figure">{Math.round(summary.hitRate * 100)}%</p>
           <p>
             {summary.hits} hits / {summary.misses} misses across {summary.total} requests
+          </p>
+        </section>
+      )}
+
+      {latency && (
+        <section>
+          <h2>Latency saved</h2>
+          <p className="figure">{latency.savedMs.toLocaleString()} ms</p>
+          <p>
+            Hits answered in ~{latency.avgHitMs} ms against ~{latency.avgMissMs} ms from the
+            origin, over {latency.hits} hits
           </p>
         </section>
       )}
