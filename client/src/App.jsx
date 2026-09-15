@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 
+const REFRESH_MS = 5000
+
 export default function App() {
   const [summary, setSummary] = useState(null)
   const [routes, setRoutes] = useState(null)
@@ -7,17 +9,32 @@ export default function App() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([
-      fetch('/stats/summary').then((res) => res.json()),
-      fetch('/stats/routes').then((res) => res.json()),
-      fetch('/stats/latency').then((res) => res.json()),
-    ])
-      .then(([summaryData, routeData, latencyData]) => {
-        setSummary(summaryData)
-        setRoutes(routeData)
-        setLatency(latencyData)
-      })
-      .catch((err) => setError(err.message))
+    async function load() {
+      try {
+        const [summaryRes, routesRes, latencyRes] = await Promise.all([
+          fetch('/stats/summary'),
+          fetch('/stats/routes'),
+          fetch('/stats/latency'),
+        ])
+
+        setSummary(await summaryRes.json())
+        setRoutes(await routesRes.json())
+        setLatency(await latencyRes.json())
+        setError(null)
+      } catch (err) {
+        setError(err.message)
+      }
+    }
+
+    load()
+
+    const id = setInterval(() => {
+      if (!document.hidden) {
+        load()
+      }
+    }, REFRESH_MS)
+
+    return () => clearInterval(id)
   }, [])
 
   return (
