@@ -49,6 +49,8 @@ app.use(async (req, res) => {
         res.setHeader(name, value)
       }
     })
+    // nothing is served from cache yet, so every response is a fresh origin fetch
+    res.setHeader('X-Cache', 'MISS')
     // fetch already decompressed the body, so the origin's content-encoding would be a lie
     res.removeHeader('content-length')
     res.removeHeader('content-encoding')
