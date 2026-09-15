@@ -5,8 +5,8 @@
   "description": "HTTP caching proxy server with Redis cache and PostgreSQL analytics",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "node --env-file-if-exists=.env src/index.js",
+    "dev": "node --watch --env-file-if-exists=.env src/index.js"
   },
   "dependencies": {
     "express": "^5.2.1",
