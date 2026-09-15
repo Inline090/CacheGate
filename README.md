@@ -78,6 +78,52 @@ Flags win over environment variables, which win over the defaults. `--clear-cach
 flushes Redis and exits — handy after repointing `--origin`, since cached entries
 are keyed on the URL alone and don't know which origin they came from.
 
+## API
+
+The proxy reserves `/stats` for itself: those paths are answered locally and never
+forwarded to the origin.
+
+| Endpoint             | Returns                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `GET /stats/summary` | Totals and hit rate: `{"total":7,"hits":4,"misses":3,"hitRate":0.571}` |
+| `GET /stats/routes`  | The ten busiest routes, each with its own hit/miss split              |
+| `GET /stats/latency` | Average latency for hits vs misses, plus total time saved             |
+
+```json
+{
+  "avgHitMs": 2,
+  "avgMissMs": 249,
+  "hits": 4,
+  "savedMs": 988
+}
+```
+
+`savedMs` is `(avgMissMs - avgHitMs) × hits` — what those cache hits would have cost
+if every one of them had gone to the origin.
+
+## Dashboard
+
+```bash
+npm run dev:client
+```
+
+Vite serves the dashboard on http://localhost:5173 and proxies `/stats` through to
+the API, so the browser only ever talks to a single origin and no CORS setup is
+needed. The page shows the hit rate, the estimated latency saved, and the
+most-requested routes table, refreshing every five seconds while the tab is
+visible.
+
+## Notes and limitations
+
+- `/stats` is reserved by the proxy, so an origin's own `/stats` paths aren't
+  reachable through it.
+- Responses over 1 MB stream straight through and are not cached, which keeps the
+  process memory flat no matter how large a response is.
+- The cache key is method + URL. It does not include the origin or any auth
+  headers, which is fine for one origin serving public content and wrong for
+  multiple backends or per-user responses. `--clear-cache` is the escape hatch when
+  you repoint `--origin`.
+
 ## Project structure
 
 ```
