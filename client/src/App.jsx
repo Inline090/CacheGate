@@ -2,12 +2,18 @@ import { useEffect, useState } from 'react'
 
 export default function App() {
   const [summary, setSummary] = useState(null)
+  const [routes, setRoutes] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetch('/stats/summary')
-      .then((res) => res.json())
-      .then(setSummary)
+    Promise.all([
+      fetch('/stats/summary').then((res) => res.json()),
+      fetch('/stats/routes').then((res) => res.json()),
+    ])
+      .then(([summaryData, routeData]) => {
+        setSummary(summaryData)
+        setRoutes(routeData)
+      })
       .catch((err) => setError(err.message))
   }, [])
 
@@ -24,6 +30,39 @@ export default function App() {
           <p>
             {summary.hits} hits / {summary.misses} misses across {summary.total} requests
           </p>
+        </section>
+      )}
+
+      {routes && (
+        <section>
+          <h2>Most requested routes</h2>
+
+          {routes.length === 0 ? (
+            <p>No requests recorded yet.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Route</th>
+                  <th>Requests</th>
+                  <th>Hits</th>
+                  <th>Misses</th>
+                  <th>Hit rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {routes.map((route) => (
+                  <tr key={route.url}>
+                    <td>{route.url}</td>
+                    <td>{route.total}</td>
+                    <td>{route.hits}</td>
+                    <td>{route.misses}</td>
+                    <td>{Math.round((route.hits / route.total) * 100)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
       )}
     </main>
