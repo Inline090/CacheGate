@@ -8,4 +8,22 @@ async function record({ method, url, status, cacheStatus, durationMs }) {
   )
 }
 
-module.exports = { record }
+async function summary() {
+  const { rows } = await pool.query(`
+    SELECT
+      count(*)::int                                    AS total,
+      count(*) FILTER (WHERE cache_status = 'HIT')::int AS hits
+    FROM request_stats
+  `)
+
+  const { total, hits } = rows[0]
+
+  return {
+    total,
+    hits,
+    misses: total - hits,
+    hitRate: total === 0 ? 0 : Number((hits / total).toFixed(3)),
+  }
+}
+
+module.exports = { record, summary }

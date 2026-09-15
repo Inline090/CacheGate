@@ -2,6 +2,7 @@ const express = require('express')
 const { parseArgs } = require('node:util')
 const cache = require('./cache')
 const stats = require('./db/stats')
+const statsRouter = require('./routes/stats')
 
 const { values } = parseArgs({
   options: {
@@ -89,6 +90,9 @@ async function reply(req, res, result, cacheStatus, startedAt) {
 app.get('/', (req, res) => {
   res.send(`caching-proxy is running. Forwarding to origin: ${ORIGIN}`)
 })
+
+// reserved for the proxy's own API, so these paths never reach the origin
+app.use('/stats', statsRouter)
 
 app.use(express.raw({ type: '*/*', limit: '10mb' }))
 
