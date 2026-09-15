@@ -1,6 +1,7 @@
 const express = require('express')
 const { parseArgs } = require('node:util')
 const cache = require('./cache')
+const stats = require('./db/stats')
 
 const { values } = parseArgs({
   options: {
@@ -66,11 +67,23 @@ async function fetchFromOrigin(req) {
   }
 }
 
-function sendResult(res, result, cacheState) {
+function sendResult(res, result, cacheStatus) {
   res.status(result.status)
   res.set(result.headers)
-  res.setHeader('X-Cache', cacheState)
+  res.setHeader('X-Cache', cacheStatus)
   res.send(result.body)
+}
+
+async function reply(req, res, result, cacheStatus, startedAt) {
+  await stats.record({
+    method: req.method,
+    url: req.originalUrl,
+    status: result.status,
+    cacheStatus,
+    durationMs: Date.now() - startedAt,
+  })
+
+  sendResult(res, result, cacheStatus)
 }
 
 app.get('/', (req, res) => {
@@ -80,22 +93,25 @@ app.get('/', (req, res) => {
 app.use(express.raw({ type: '*/*', limit: '10mb' }))
 
 app.use(async (req, res) => {
+  const startedAt = Date.now()
+
   try {
     if (!cache.isCacheableRequest(req.method)) {
-      return sendResult(res, await fetchFromOrigin(req), 'MISS')
+      const result = await fetchFromOrigin(req)
+      return await reply(req, res, result, 'MISS', startedAt)
     }
 
     const cached = await cache.get(req.method, req.originalUrl)
 
     if (cached) {
-      return sendResult(res, cached, 'HIT')
+      return await reply(req, res, cached, 'HIT', startedAt)
     }
 
     const key = cache.keyFor(req.method, req.originalUrl)
     const existing = inFlight.get(key)
 
     if (existing) {
-      existing.waiters.push(res)
+      existing.waiters.push({ req, res, startedAt })
       return
     }
 
@@ -108,10 +124,10 @@ app.use(async (req, res) => {
       await cache.set(req.method, req.originalUrl, result)
     }
 
-    sendResult(res, result, 'MISS')
+    await reply(req, res, result, 'MISS', startedAt)
 
     for (const waiter of entry.waiters) {
-      sendResult(waiter, result, 'MISS')
+      await reply(waiter.req, waiter.res, result, 'MISS', waiter.startedAt)
     }
 
     inFlight.delete(key)
