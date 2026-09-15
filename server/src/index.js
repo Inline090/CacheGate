@@ -34,9 +34,10 @@ app.use(async (req, res) => {
   }
 
   const sendBody = !['GET', 'HEAD'].includes(req.method)
+  const useCache = cache.isCacheableRequest(req.method)
 
   try {
-    const cached = await cache.get(req.method, req.originalUrl)
+    const cached = useCache ? await cache.get(req.method, req.originalUrl) : null
 
     if (cached) {
       res.status(cached.status)
@@ -61,11 +62,13 @@ app.use(async (req, res) => {
       }
     })
 
-    await cache.set(req.method, req.originalUrl, {
-      status: originRes.status,
-      headers: responseHeaders,
-      body,
-    })
+    if (useCache && cache.isCacheableResponse(originRes.status)) {
+      await cache.set(req.method, req.originalUrl, {
+        status: originRes.status,
+        headers: responseHeaders,
+        body,
+      })
+    }
 
     res.status(originRes.status)
     res.set(responseHeaders)
