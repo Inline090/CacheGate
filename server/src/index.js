@@ -197,7 +197,7 @@ app.use(async (req, res) => {
 })
 
 async function main() {
-  await cache.connect()
+  cache.connect()
 
   if (values['clear-cache']) {
     await cache.flush()
