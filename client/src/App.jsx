@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 
-const API = 'http://localhost:3000'
-
 export default function App() {
   const [summary, setSummary] = useState(null)
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetch(`${API}/stats/summary`)
+    fetch('/stats/summary')
       .then((res) => res.json())
       .then(setSummary)
       .catch((err) => setError(err.message))
