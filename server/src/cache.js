@@ -17,6 +17,14 @@ async function connect() {
   await client.connect()
 }
 
+async function disconnect() {
+  await client.quit()
+}
+
+async function flush() {
+  await client.flushAll()
+}
+
 function keyFor(method, url) {
   return `cache:${method}:${url}`
 }
@@ -53,4 +61,13 @@ async function set(method, url, response) {
   await client.set(keyFor(method, url), JSON.stringify(entry), { EX: TTL_SECONDS })
 }
 
-module.exports = { connect, get, set, keyFor, isCacheableRequest, isCacheableResponse }
+module.exports = {
+  connect,
+  disconnect,
+  flush,
+  get,
+  set,
+  keyFor,
+  isCacheableRequest,
+  isCacheableResponse,
+}

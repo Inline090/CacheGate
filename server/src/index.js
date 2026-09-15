@@ -6,6 +6,7 @@ const { values } = parseArgs({
   options: {
     port: { type: 'string', short: 'p' },
     origin: { type: 'string', short: 'o' },
+    'clear-cache': { type: 'boolean' },
   },
 })
 
@@ -122,6 +123,13 @@ app.use(async (req, res) => {
 
 async function main() {
   await cache.connect()
+
+  if (values['clear-cache']) {
+    await cache.flush()
+    await cache.disconnect()
+    console.log('cache cleared')
+    return
+  }
 
   app.listen(PORT, () => {
     console.log(`caching-proxy listening on http://localhost:${PORT}`)
