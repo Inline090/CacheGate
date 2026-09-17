@@ -39,7 +39,7 @@ export default function App() {
 
   return (
     <main>
-      <h1>Caching Proxy Dashboard</h1>
+      <h1>CacheGate Dashboard</h1>
 
       {error && <p className="error">Could not load stats: {error}</p>}
 

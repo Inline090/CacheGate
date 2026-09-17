@@ -1,8 +1,8 @@
 {
-  "name": "@caching-proxy/client",
+  "name": "@cachegate/client",
   "version": "0.1.0",
   "private": true,
-  "description": "React analytics dashboard for the Caching Proxy",
+  "description": "React analytics dashboard for CacheGate",
   "type": "module",
   "scripts": {
     "dev": "vite",

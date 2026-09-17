@@ -1,5 +1,5 @@
 {
-  "name": "@caching-proxy/server",
+  "name": "@cachegate/server",
   "version": "0.1.0",
   "private": true,
   "description": "HTTP caching proxy server with Redis cache and PostgreSQL analytics",

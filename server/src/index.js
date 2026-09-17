@@ -130,7 +130,7 @@ async function reply(req, res, result, cacheStatus, startedAt) {
 }
 
 app.get('/', (req, res) => {
-  res.send(`caching-proxy is running. Forwarding to origin: ${ORIGIN}`)
+  res.send(`CacheGate is running. Forwarding to origin: ${ORIGIN}`)
 })
 
 // reserved for the proxy's own API, so these paths never reach the origin
@@ -213,7 +213,7 @@ async function main() {
   }
 
   app.listen(PORT, () => {
-    console.log(`caching-proxy listening on http://localhost:${PORT}`)
+    console.log(`cachegate listening on http://localhost:${PORT}`)
     console.log(`forwarding to origin: ${ORIGIN}`)
   })
 }
