@@ -1,4 +1,4 @@
-# Caching Proxy - HTTP Caching Proxy with Analytics Dashboard
+# CacheGate - HTTP Caching Proxy with Analytics Dashboard
 
 An HTTP caching proxy that sits in front of an origin server, serves repeated requests straight from Redis instead of hitting the origin again, and reports what the cache is doing through a React dashboard. Built with Node.js, Express, Redis, PostgreSQL, and React.
 
@@ -25,8 +25,8 @@ An HTTP caching proxy that sits in front of an origin server, serves repeated re
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/Inline090/CachingProxy.git
-cd CachingProxy
+git clone https://github.com/Inline090/CacheGate.git
+cd CacheGate
 npm install
 ```
 
@@ -105,7 +105,7 @@ Copy `server/.env.example` to `server/.env` and adjust as needed. Every value ha
 | `ORIGIN` | `http://localhost:8080` | Server requests are forwarded to |
 | `REDIS_URL` | `redis://localhost:6379` | Cache connection |
 | `CACHE_TTL` | `60` | Seconds a cached response stays valid |
-| `DATABASE_URL` | `postgres://caching_proxy:caching_proxy@localhost:5433/caching_proxy` | Stats database |
+| `DATABASE_URL` | `postgres://cachegate:cachegate@localhost:5433/cachegate` | Stats database |
 
 PostgreSQL is published on `5433` rather than the usual `5432` so it cannot collide with a database already running on your machine.
 
